@@ -45,8 +45,6 @@ final class SpyMailer implements MailerInterface
  * @package Tests\Channel
  */
 #[CoversClass(MailChannel::class)]
-#[UsesClass(Mailable::class)]
-#[UsesClass(Mail::class)]
 #[UsesClass(SendMailNotificationJob::class)]
 #[UsesClass(\EzPhp\Notification\NotificationException::class)]
 final class MailChannelTest extends TestCase

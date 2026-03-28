@@ -23,9 +23,6 @@ use Tests\TestCase;
  * @package Tests\Channel
  */
 #[CoversClass(BroadcastChannel::class)]
-#[UsesClass(Broadcast::class)]
-#[UsesClass(Broadcaster::class)]
-#[UsesClass(ArrayDriver::class)]
 #[UsesClass(SendBroadcastNotificationJob::class)]
 #[UsesClass(\EzPhp\Notification\NotificationException::class)]
 final class BroadcastChannelTest extends TestCase
