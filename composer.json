@@ -1,0 +1,58 @@
+{
+    "name": "ez-php/notification",
+    "version": "1.0.1",
+    "description": "Multi-channel notification orchestration for the ez-php framework — mail, broadcast, and database channels with optional queue-backed async delivery",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Andreas Uretschnig",
+            "email": "andreas.uretschnig@gmail.com"
+        }
+    ],
+    "keywords": [
+        "notification",
+        "mail",
+        "broadcast",
+        "queue",
+        "php",
+        "framework",
+        "ez-php"
+    ],
+    "homepage": "https://github.com/ez-php/notification",
+    "support": {
+        "issues": "https://github.com/ez-php/notification/issues",
+        "source": "https://github.com/ez-php/notification"
+    },
+    "require": {
+        "php": "^8.5",
+        "ez-php/contracts": "^1.0",
+        "ez-php/mail": "^1.0",
+        "ez-php/broadcast": "^1.0",
+        "ez-php/queue": "^1.0"
+    },
+    "require-dev": {
+        "ez-php/docker": "^1.0",
+        "phpunit/phpunit": "^13.0",
+        "phpstan/phpstan": "^2.1",
+        "friendsofphp/php-cs-fixer": "^3.94",
+        "phpstan/phpstan-strict-rules": "^2.0",
+        "phpstan/phpstan-deprecation-rules": "^2.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "EzPhp\\Notification\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "cs": "php-cs-fixer fix",
+        "analyse": "phpstan analyse",
+        "test": "phpunit",
+        "full": "composer analyse && composer cs && composer test"
+    }
+}
