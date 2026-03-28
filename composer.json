@@ -1,6 +1,6 @@
 {
     "name": "ez-php/notification",
-    "version": "1.1.1",
+    "version": "1.2.0",
     "description": "Multi-channel notification orchestration for the ez-php framework — mail, broadcast, and database channels with optional queue-backed async delivery",
     "type": "library",
     "license": "MIT",
