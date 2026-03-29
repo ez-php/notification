@@ -8,16 +8,16 @@
     "packages": [
         {
             "name": "ez-php/broadcast",
-            "version": "1.1.1",
+            "version": "1.2.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/ez-php/broadcast.git",
-                "reference": "05088c6ce0e5a09b3b0ed50956fdb17e10f9e8be"
+                "reference": "b8733fa9be08f424f54c449311a29212e8f38d7d"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/ez-php/broadcast/zipball/05088c6ce0e5a09b3b0ed50956fdb17e10f9e8be",
-                "reference": "05088c6ce0e5a09b3b0ed50956fdb17e10f9e8be",
+                "url": "https://api.github.com/repos/ez-php/broadcast/zipball/b8733fa9be08f424f54c449311a29212e8f38d7d",
+                "reference": "b8733fa9be08f424f54c449311a29212e8f38d7d",
                 "shasum": ""
             },
             "require": {
@@ -63,20 +63,20 @@
                 "issues": "https://github.com/ez-php/broadcast/issues",
                 "source": "https://github.com/ez-php/broadcast"
             },
-            "time": "2026-03-28T14:25:52+00:00"
+            "time": "2026-03-28T21:58:57+00:00"
         },
         {
             "name": "ez-php/console",
-            "version": "1.1.1",
+            "version": "1.2.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/ez-php/console.git",
-                "reference": "72916fc101bb55adc57f91c089d10cf3374b9fa7"
+                "reference": "473a2e2fbed9275a6905bff4592062e66c592ca3"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/ez-php/console/zipball/72916fc101bb55adc57f91c089d10cf3374b9fa7",
-                "reference": "72916fc101bb55adc57f91c089d10cf3374b9fa7",
+                "url": "https://api.github.com/repos/ez-php/console/zipball/473a2e2fbed9275a6905bff4592062e66c592ca3",
+                "reference": "473a2e2fbed9275a6905bff4592062e66c592ca3",
                 "shasum": ""
             },
             "require": {
@@ -120,7 +120,7 @@
                 "issues": "https://github.com/ez-php/console/issues",
                 "source": "https://github.com/ez-php/console"
             },
-            "time": "2026-03-28T14:25:52+00:00"
+            "time": "2026-03-28T21:58:58+00:00"
         },
         {
             "name": "ez-php/contracts",
@@ -240,16 +240,16 @@
         },
         {
             "name": "ez-php/mail",
-            "version": "1.1.1",
+            "version": "1.2.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/ez-php/mail.git",
-                "reference": "d14e69651aa1bed71af3a9436532ac2d1cca226a"
+                "reference": "d71141c359cdc520f20b338a6db699a02023abeb"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/ez-php/mail/zipball/d14e69651aa1bed71af3a9436532ac2d1cca226a",
-                "reference": "d14e69651aa1bed71af3a9436532ac2d1cca226a",
+                "url": "https://api.github.com/repos/ez-php/mail/zipball/d71141c359cdc520f20b338a6db699a02023abeb",
+                "reference": "d71141c359cdc520f20b338a6db699a02023abeb",
                 "shasum": ""
             },
             "require": {
@@ -295,20 +295,20 @@
                 "issues": "https://github.com/ez-php/mail/issues",
                 "source": "https://github.com/ez-php/mail"
             },
-            "time": "2026-03-28T14:25:54+00:00"
+            "time": "2026-03-28T21:58:59+00:00"
         },
         {
             "name": "ez-php/queue",
-            "version": "1.1.1",
+            "version": "1.2.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/ez-php/queue.git",
-                "reference": "c77fcb387b1233d8076561adb5dc6d6ffc7669ad"
+                "reference": "3c431fb45929e653a2b1cc1c9772a59f7985f20d"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/ez-php/queue/zipball/c77fcb387b1233d8076561adb5dc6d6ffc7669ad",
-                "reference": "c77fcb387b1233d8076561adb5dc6d6ffc7669ad",
+                "url": "https://api.github.com/repos/ez-php/queue/zipball/3c431fb45929e653a2b1cc1c9772a59f7985f20d",
+                "reference": "3c431fb45929e653a2b1cc1c9772a59f7985f20d",
                 "shasum": ""
             },
             "require": {
@@ -358,7 +358,7 @@
                 "issues": "https://github.com/ez-php/queue/issues",
                 "source": "https://github.com/ez-php/queue"
             },
-            "time": "2026-03-28T14:25:54+00:00"
+            "time": "2026-03-28T21:58:59+00:00"
         }
     ],
     "packages-dev": [
@@ -697,16 +697,16 @@
         },
         {
             "name": "ez-php/docker",
-            "version": "1.1.1",
+            "version": "1.2.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/ez-php/docker.git",
-                "reference": "802196b1039dcd620957b13ec338ee8ad28677f5"
+                "reference": "55fe980099e90bfded45acbdaed95218de528688"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/ez-php/docker/zipball/802196b1039dcd620957b13ec338ee8ad28677f5",
-                "reference": "802196b1039dcd620957b13ec338ee8ad28677f5",
+                "url": "https://api.github.com/repos/ez-php/docker/zipball/55fe980099e90bfded45acbdaed95218de528688",
+                "reference": "55fe980099e90bfded45acbdaed95218de528688",
                 "shasum": ""
             },
             "require": {
@@ -724,9 +724,9 @@
             "description": "Docker base image source and scaffolding stubs for ez-php modules and projects",
             "support": {
                 "issues": "https://github.com/ez-php/docker/issues",
-                "source": "https://github.com/ez-php/docker/tree/v1.1.1"
+                "source": "https://github.com/ez-php/docker/tree/v1.2.0"
             },
-            "time": "2026-03-28T14:25:53+00:00"
+            "time": "2026-03-28T21:58:59+00:00"
         },
         {
             "name": "fidry/cpu-core-counter",
