@@ -13,6 +13,7 @@ use PDO;
 use PDOStatement;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\UsesClass;
+use ReflectionMethod;
 use Tests\TestCase;
 
 /**
@@ -169,5 +170,40 @@ final class DatabaseChannelTest extends TestCase
         $stmt = $this->pdo->query('SELECT COUNT(*) FROM notifications');
         assert($stmt instanceof PDOStatement);
         $this->assertSame(2, (int) $stmt->fetchColumn());
+    }
+
+    public function testMysqlDdlIndexesNotifiableColumns(): void
+    {
+        $spyPdo = new class () extends PDO {
+            /** @var array<int, string> */
+            public array $executed = [];
+
+            public function __construct()
+            {
+                // Do not call parent — intentionally not a real connection.
+            }
+
+            public function getAttribute(int $attribute): mixed
+            {
+                return $attribute === PDO::ATTR_DRIVER_NAME ? 'mysql' : null;
+            }
+
+            public function exec(string $statement): int
+            {
+                $this->executed[] = $statement;
+
+                return 0;
+            }
+        };
+
+        $channel = new DatabaseChannel($spyPdo);
+        $ensureTable = new ReflectionMethod($channel, 'ensureTable');
+        $ensureTable->invoke($channel);
+
+        $this->assertNotEmpty($spyPdo->executed);
+        $this->assertStringContainsString(
+            'INDEX           idx_notifications_notifiable (notifiable_type, notifiable_id)',
+            $spyPdo->executed[0],
+        );
     }
 }

@@ -110,7 +110,8 @@ final class DatabaseChannel implements ChannelInterface
                     notifiable_id   VARCHAR(255) NOT NULL,
                     data            JSON         NOT NULL,
                     read_at         DATETIME     NULL,
-                    created_at      DATETIME     NOT NULL
+                    created_at      DATETIME     NOT NULL,
+                    INDEX           idx_notifications_notifiable (notifiable_type, notifiable_id)
                 )
             ');
         }
