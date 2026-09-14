@@ -11,6 +11,7 @@ use EzPhp\Contracts\ServiceProvider;
 use EzPhp\Notification\Channel\BroadcastChannel;
 use EzPhp\Notification\Channel\DatabaseChannel;
 use EzPhp\Notification\Channel\MailChannel;
+use EzPhp\Notification\Channel\PushChannel;
 
 /**
  * Class NotificationServiceProvider
@@ -20,6 +21,7 @@ use EzPhp\Notification\Channel\MailChannel;
  * Built-in channels registered:
  *   - 'mail'      → MailChannel      (requires MailServiceProvider)
  *   - 'broadcast' → BroadcastChannel (requires BroadcastServiceProvider)
+ *   - 'push'      → PushChannel      (requires PushServiceProvider)
  *   - 'database'  → DatabaseChannel  (requires DatabaseServiceProvider; optional)
  *
  * Optional integrations (resolved gracefully when unavailable):
@@ -39,6 +41,7 @@ final class NotificationServiceProvider extends ServiceProvider
             $channels = [
                 'mail' => new MailChannel(),
                 'broadcast' => new BroadcastChannel(),
+                'push' => new PushChannel(),
             ];
 
             // The database channel requires DatabaseInterface. Register it only

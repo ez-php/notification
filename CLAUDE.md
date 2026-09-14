@@ -148,8 +148,9 @@ php make_module.php <name> --description="..." --services=mysql,redis
 ```
 
 `<name>` is the kebab-case package name; the namespace is derived as
-`EzPhp\<PascalCase>` unless `--namespace=` overrides it (`bignum` → `BigNum` and
-`opcache` → `OPCache` are existing exceptions the guess gets wrong).
+`EzPhp\<PascalCase>` unless `--namespace=` overrides it (`bignum` → `BigNum`,
+`opcache` → `OPCache`, and `dotenv` → `Env` are existing exceptions the guess
+gets wrong).
 
 To bring in a module whose code already lives in its own repository instead of
 generating a fresh skeleton, pass `--repo=` with a git URL:
@@ -222,6 +223,8 @@ Only set a port for services the module actually uses. Modules without external 
 
 > The "Redis host port" column is likewise the **host**-published port. `ez-php/cache`, `ez-php/queue`, and `ez-php/rate-limiter` map it through a separate `REDIS_HOST_PORT` env var in `docker-compose.yml`, keeping `REDIS_PORT` fixed at `6379` for in-container connections (the app container always reaches Redis at `redis:6379` over the Compose network, regardless of the host mapping) — the root project is the one exception, since it has no host/container split and uses `REDIS_PORT` for both.
 
+> This table tracks only MySQL, Redis, and Meilisearch ports — the three services shared across multiple modules where a collision is otherwise easy to introduce. `ez-php/mail`'s Mailpit service is the one other module with published host ports: SMTP `1025` and web UI `8025`, mapped through `MAILPIT_SMTP_HOST_PORT`/`MAILPIT_API_HOST_PORT` in `modules/mail/docker-compose.yml` (mirroring the `*_HOST_PORT` pattern above), documented in `modules/mail/.env.example`. It isn't a table column because no other module runs Mailpit, so there is nothing to collide with — but a new module adding its own single-use service's ports should likewise parameterize them and document the defaults in its own `.env.example` rather than adding a column here.
+
 ### 5 — Monorepo scripts
 
 `packages.sh` at the project root is the **central package registry**. Both `push_all.sh` and `update_all.sh` source it — the package list lives in exactly one place.
@@ -252,13 +255,16 @@ src/
 ├── Channel/
 │   ├── ToMailInterface.php            — toMail(notifiable): Mailable; required for 'mail' channel
 │   ├── ToBroadcastInterface.php       — broadcastOn/broadcastAs/broadcastWith; required for 'broadcast' channel
+│   ├── ToPushInterface.php            — pushToken/toPush; required for 'push' channel
 │   ├── ToDatabaseInterface.php        — toDatabase(notifiable): array; required for 'database' channel
 │   ├── MailChannel.php                — implements QueuableChannelInterface; calls Mail::send()
 │   ├── BroadcastChannel.php           — implements QueuableChannelInterface; calls Broadcast::to()
+│   ├── PushChannel.php                — implements QueuableChannelInterface; calls Push::send()
 │   └── DatabaseChannel.php            — implements ChannelInterface; inserts into notifications table (auto-created)
 └── Queue/
     ├── SendMailNotificationJob.php    — Job storing pre-built Mailable; handle() calls Mail::send()
-    └── SendBroadcastNotificationJob.php — Job storing channel/event/payload; handle() calls Broadcast::to()
+    ├── SendBroadcastNotificationJob.php — Job storing channel/event/payload; handle() calls Broadcast::to()
+    └── SendPushNotificationJob.php    — Job storing token/PushMessage; handle() calls Push::send()
 
 tests/
 ├── TestCase.php                       — base PHPUnit test case
@@ -267,6 +273,7 @@ tests/
 └── Channel/
     ├── MailChannelTest.php            — covers MailChannel + SendMailNotificationJob
     ├── BroadcastChannelTest.php       — covers BroadcastChannel + SendBroadcastNotificationJob
+    ├── PushChannelTest.php            — covers PushChannel + SendPushNotificationJob
     └── DatabaseChannelTest.php        — covers DatabaseChannel with SQLite :memory: (no MySQL required)
 ```
 
@@ -296,6 +303,7 @@ public function routeNotificationFor(string $channel): string|int;
 Returns the delivery address for the given channel:
 - `'mail'`      → email address (string)
 - `'broadcast'` → channel name (string)
+- `'push'`      → device token (string)
 - `'database'`  → entity ID (int or string)
 
 ---
@@ -335,6 +343,7 @@ Static facade mirroring the `Mail` and `Broadcast` facades. Holds a `?Notifier` 
 |---------|-------------------|-------|
 | `mail` | yes | Requires `MailServiceProvider` to be registered before using |
 | `broadcast` | yes | Requires `BroadcastServiceProvider` to be registered before using |
+| `push` | yes | Requires `PushServiceProvider` to be registered before using |
 | `database` | only if `DatabaseInterface` is bound | Wrapped in try/catch — omitted silently if not bound |
 
 `QueueInterface` is also resolved in a try/catch — missing binding means synchronous-only mode.
@@ -355,15 +364,21 @@ Validates `ToBroadcastInterface`, then calls `Broadcast::to(channel, event, payl
 
 ---
 
+### PushChannel (`src/Channel/PushChannel.php`)
+
+Validates `ToPushInterface`, then calls `Push::send(token, message)` with the device token and `PushMessage` returned by the notification's `pushToken()`/`toPush()` methods. `toJob()` pre-resolves both into `SendPushNotificationJob`.
+
+---
+
 ### DatabaseChannel (`src/Channel/DatabaseChannel.php`)
 
 Validates `ToDatabaseInterface`. On first `send()` call, creates the `notifications` table via `CREATE TABLE IF NOT EXISTS` using driver-aware DDL (MySQL vs SQLite). Stores `type`, `notifiable_type`, `notifiable_id`, `data` (JSON), and `created_at`. `read_at` is always `NULL` on insert — marking as read is application responsibility.
 
 ---
 
-### SendMailNotificationJob / SendBroadcastNotificationJob (`src/Queue/`)
+### SendMailNotificationJob / SendBroadcastNotificationJob / SendPushNotificationJob (`src/Queue/`)
 
-Both extend `EzPhp\Queue\Job` and implement `handle()` with zero parameters (Worker contract). All data needed for delivery is embedded at construction time, before serialisation. `Mailable` is PHP-serialisable. Broadcast data (string + array) is inherently serialisable.
+All three extend `EzPhp\Queue\Job` and implement `handle()` with zero parameters (Worker contract). All data needed for delivery is embedded at construction time, before serialisation. `Mailable` is PHP-serialisable. Broadcast data (string + array) is inherently serialisable. `PushMessage` is a `readonly` value object of scalars/arrays and is inherently serialisable too.
 
 ---
 
@@ -375,7 +390,8 @@ Both extend `EzPhp\Queue\Job` and implement `handle()` with zero parameters (Wor
 - **`DatabaseChannel` auto-creates the table.** `CREATE TABLE IF NOT EXISTS` in `ensureTable()` runs exactly once per `DatabaseChannel` instance. This matches the `DatabaseDriver` approach in `ez-php/queue` and makes development zero-config. Production deployments can pre-create the table via a migration.
 - **Optional dependencies via `try/catch` in the SP.** `DatabaseInterface` and `QueueInterface` are truly optional — a notification module that only uses `mail` and `broadcast` channels should not require a database connection. The `try/catch \Throwable` pattern is pragmatic given that `ContainerInterface` has no `has()` method.
 - **`Notification` facade is fail-fast.** Missing `setNotifier()` throws `RuntimeException` immediately, mirroring `Mail` and `Broadcast`. Silent discards are worse than loud failures.
-- **`routeNotificationFor()` returns `string|int`.** All three built-in channels need either a string address or an integer/string ID. This union type avoids `mixed` while accommodating all use cases.
+- **`routeNotificationFor()` returns `string|int`.** All built-in channels need either a string address or an integer/string ID. This union type avoids `mixed` while accommodating all use cases.
+- **`PushChannel` depends on `ez-php/push`'s `Push` facade, not the container.** This mirrors `MailChannel`/`BroadcastChannel`, which likewise call their module's static facade (`Mail::send()`, `Broadcast::to()`) rather than resolving a service from the DI container — the facade is the module's public API. `ez-php/push` is a hard `require` of this package, not optional, matching `ez-php/mail` and `ez-php/broadcast`.
 - **No `Notifiable` trait or abstract base class.** Implementing `routeNotificationFor()` is the entire contract. Adding a trait or base class would couple application models to the module without benefit.
 
 ---
@@ -386,6 +402,7 @@ Both extend `EzPhp\Queue\Job` and implement `handle()` with zero parameters (Wor
 - **`DatabaseChannelTest`** — Uses SQLite `:memory:` via plain `PDO`. No MySQL or Docker required.
 - **`MailChannelTest`** — Injects `SpyMailer implements MailerInterface` via `Mail::setMailer()`. Uses `Mail::resetMailer()` in `tearDown()` to prevent state leaking. `SpyMailer` is a file-scope named class (not anonymous) to avoid PHPStan's `property.onlyWritten` check on reference-backed properties.
 - **`BroadcastChannelTest`** — Uses `ArrayDriver` (real in-memory driver from `ez-php/broadcast`) via `Broadcast::setBroadcaster()`. Uses `Broadcast::resetBroadcaster()` in `tearDown()`.
+- **`PushChannelTest`** — Uses `ArrayDriver` (real in-memory driver from `ez-php/push`) via `Push::setPusher(new Pusher($driver))`. Uses `Push::resetPusher()` in `tearDown()`.
 - **`NotifierTest`** — All channels are anonymous-class or file-scope-class stubs. `SpyQueue implements QueueInterface` captures `push()` calls. No external infrastructure.
 - **`NotificationTest`** — Tests the static facade (set/reset/delegate). Uses `Notification::resetNotifier()` in `setUp()` and `tearDown()`.
 - **`#[CoversClass]` required** — `beStrictAboutCoverageMetadata=true` is set in `phpunit.xml`.
@@ -399,7 +416,6 @@ Both extend `EzPhp\Queue\Job` and implement `handle()` with zero parameters (Wor
 | Marking notifications as read (read_at) | Application layer — query the notifications table directly |
 | Unread notification count badges | Application layer |
 | In-process domain events | `ez-php/events` |
-| Push notifications (APNS, FCM) | Application layer or a future `ez-php/push` module |
 | SMS / phone channel | Application layer |
 | Slack / webhook channel | Application layer |
 | Template rendering for notification bodies | `ez-php/view` (use in `toMail()`) |
