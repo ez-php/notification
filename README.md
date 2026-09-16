@@ -126,6 +126,25 @@ CREATE TABLE notifications (
 );
 ```
 
+### Rate-limited delivery
+
+`Channel\RateLimitedChannel` decorates any other channel and caps how often it delivers, via `ez-php/rate-limiter` (soft dependency — must be installed separately, since it's declared in `require-dev` here, not `require`):
+
+```php
+use EzPhp\Notification\Channel\RateLimitedChannel;
+use EzPhp\RateLimiter\ArrayDriver;
+
+$throttledMail = new RateLimitedChannel(
+    channel: new MailChannel(),
+    limiter: new ArrayDriver(),
+    maxAttempts: 5,
+    decaySeconds: 3600,
+    keyResolver: fn ($notifiable, $notification) => 'mail:' . $notifiable->routeNotificationFor('mail'),
+);
+```
+
+Register `$throttledMail` wherever a plain `MailChannel` would otherwise be wired into `NotificationServiceProvider`/`Notifier`. When the limit is hit, the notification is silently dropped for that attempt — it is not queued or retried.
+
 ## Multi-channel
 
 Return multiple channels from `via()` and implement the matching interfaces:

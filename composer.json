@@ -1,6 +1,6 @@
 {
     "name": "ez-php/notification",
-    "version": "2.4.1",
+    "version": "2.4.2",
     "description": "Multi-channel notification orchestration for the ez-php framework — mail, broadcast, push, and database channels with optional queue-backed async delivery",
     "type": "library",
     "license": "MIT",
@@ -35,6 +35,7 @@
     },
     "require-dev": {
         "ez-php/docker": "^2.0",
+        "ez-php/rate-limiter": "^2.0",
         "phpunit/phpunit": "^13.0",
         "phpstan/phpstan": "^2.1",
         "friendsofphp/php-cs-fixer": "^3.94",

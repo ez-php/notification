@@ -271,7 +271,8 @@ src/
 │   ├── MailChannel.php                — implements QueuableChannelInterface; calls Mail::send()
 │   ├── BroadcastChannel.php           — implements QueuableChannelInterface; calls Broadcast::to()
 │   ├── PushChannel.php                — implements QueuableChannelInterface; calls Push::send()
-│   └── DatabaseChannel.php            — implements ChannelInterface; inserts into notifications table (auto-created)
+│   ├── DatabaseChannel.php            — implements ChannelInterface; inserts into notifications table (auto-created)
+│   └── RateLimitedChannel.php         — implements ChannelInterface; decorator throttling delivery through another channel via ez-php/rate-limiter (soft dependency — require-dev only)
 └── Queue/
     ├── SendMailNotificationJob.php    — Job storing pre-built Mailable; handle() calls Mail::send()
     ├── SendBroadcastNotificationJob.php — Job storing channel/event/payload; handle() calls Broadcast::to()
@@ -285,7 +286,8 @@ tests/
     ├── MailChannelTest.php            — covers MailChannel + SendMailNotificationJob
     ├── BroadcastChannelTest.php       — covers BroadcastChannel + SendBroadcastNotificationJob
     ├── PushChannelTest.php            — covers PushChannel + SendPushNotificationJob
-    └── DatabaseChannelTest.php        — covers DatabaseChannel with SQLite :memory: (no MySQL required)
+    ├── DatabaseChannelTest.php        — covers DatabaseChannel with SQLite :memory: (no MySQL required)
+    └── RateLimitedChannelTest.php     — covers RateLimitedChannel: delivery under limit, drop over limit, per-key isolation via ez-php/rate-limiter's ArrayDriver
 ```
 
 ---
@@ -387,6 +389,12 @@ Validates `ToDatabaseInterface`. On first `send()` call, creates the `notificati
 
 ---
 
+### RateLimitedChannel (`src/Channel/RateLimitedChannel.php`)
+
+Decorator implementing `ChannelInterface` (not `QueuableChannelInterface` — it wraps whatever channel is passed to it and forwards `send()` only; queueing is the wrapped channel's own concern, orchestrated by `Notifier` before this decorator is ever reached). Wraps another `ChannelInterface`, a `RateLimiterInterface`, and a required `Closure(NotifiableInterface, NotificationInterface): string $keyResolver`. `send()` calls `$limiter->attempt(key, maxAttempts, decaySeconds)`; on success it forwards to the wrapped channel, on throttle it silently returns without delivering.
+
+---
+
 ### SendMailNotificationJob / SendBroadcastNotificationJob / SendPushNotificationJob (`src/Queue/`)
 
 All three extend `EzPhp\Queue\Job` and implement `handle()` with zero parameters (Worker contract). All data needed for delivery is embedded at construction time, before serialisation. `Mailable` is PHP-serialisable. Broadcast data (string + array) is inherently serialisable. `PushMessage` is a `readonly` value object of scalars/arrays and is inherently serialisable too.
@@ -401,6 +409,9 @@ All three extend `EzPhp\Queue\Job` and implement `handle()` with zero parameters
 - **`DatabaseChannel` auto-creates the table.** `CREATE TABLE IF NOT EXISTS` in `ensureTable()` runs exactly once per `DatabaseChannel` instance. This matches the `DatabaseDriver` approach in `ez-php/queue` and makes development zero-config. Production deployments can pre-create the table via a migration.
 - **Optional dependencies via `try/catch` in the SP.** `DatabaseInterface` and `QueueInterface` are truly optional — a notification module that only uses `mail` and `broadcast` channels should not require a database connection. The `try/catch \Throwable` pattern is pragmatic given that `ContainerInterface` has no `has()` method.
 - **`Notification` facade is fail-fast.** Missing `setNotifier()` throws `RuntimeException` immediately, mirroring `Mail` and `Broadcast`. Silent discards are worse than loud failures.
+- **`RateLimitedChannel` requires an explicit `$keyResolver`, with no default.** `NotifiableInterface` only exposes identity per-channel via `routeNotificationFor(string $channel)`, and `NotificationInterface` carries no id of its own — there is no generically-correct key to guess (unlike `ThrottleMiddleware`, which can default to the client IP from the `Request` it's always given). The caller must supply one.
+- **`RateLimitedChannel` drops on throttle, it does not queue or retry.** This matches `ThrottleMiddleware` returning 429 rather than buffering the request — the decorator's job is to cap delivery rate, not to guarantee eventual delivery. An application that wants "deliver later instead of drop" should combine this with a `QueuableChannelInterface` channel and its own backoff logic.
+- **`ez-php/rate-limiter` is a soft dependency, `require-dev` only** — same reasoning as `ez-php/mail`'s `Job\SendMailableJob`: a module that pulls in a package as a hard `require` forces it on every consumer, even ones that never use the decorator. PSR-4 only resolves `RateLimitedChannel.php` (and therefore `RateLimiterInterface`) when something actually references the class.
 - **`routeNotificationFor()` returns `string|int`.** All built-in channels need either a string address or an integer/string ID. This union type avoids `mixed` while accommodating all use cases.
 - **`PushChannel` depends on `ez-php/push`'s `Push` facade, not the container.** This mirrors `MailChannel`/`BroadcastChannel`, which likewise call their module's static facade (`Mail::send()`, `Broadcast::to()`) rather than resolving a service from the DI container — the facade is the module's public API. `ez-php/push` is a hard `require` of this package, not optional, matching `ez-php/mail` and `ez-php/broadcast`.
 - **No `Notifiable` trait or abstract base class.** Implementing `routeNotificationFor()` is the entire contract. Adding a trait or base class would couple application models to the module without benefit.
@@ -431,4 +442,5 @@ All three extend `EzPhp\Queue\Job` and implement `handle()` with zero parameters
 | Slack / webhook channel | Application layer |
 | Template rendering for notification bodies | `ez-php/view` (use in `toMail()`) |
 | Notification preferences per user | Application layer |
-| Batching / rate-limiting notifications | Application layer + `ez-php/rate-limiter` |
+| Batching of notifications | Application layer |
+| Rate-limiting beyond `Channel\RateLimitedChannel`'s single-channel decorator | Application layer builds more elaborate throttling (per-notification-type budgets, cross-channel limits, etc.) on top of it |
