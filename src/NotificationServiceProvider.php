@@ -47,22 +47,17 @@ final class NotificationServiceProvider extends ServiceProvider
             // The database channel requires DatabaseInterface. Register it only
             // when a database binding is available so that applications without
             // a database can still use the mail/broadcast channels.
-            try {
+            if ($app->has(DatabaseInterface::class)) {
                 $channels['database'] = new DatabaseChannel(
                     $app->make(DatabaseInterface::class)->getPdo()
                 );
-            } catch (\Throwable) {
-                // DatabaseInterface not registered — 'database' channel unavailable.
             }
 
             // Queue support is optional. When QueueInterface is not bound,
             // ShouldQueueInterface notifications are sent synchronously.
-            $queue = null;
-            try {
-                $queue = $app->make(QueueInterface::class);
-            } catch (\Throwable) {
-                // QueueInterface not registered — all notifications sent synchronously.
-            }
+            $queue = $app->has(QueueInterface::class)
+                ? $app->make(QueueInterface::class)
+                : null;
 
             return new Notifier($channels, $queue);
         });
