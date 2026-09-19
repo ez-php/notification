@@ -10,7 +10,6 @@ use EzPhp\Notification\NotifiableInterface;
 use EzPhp\Notification\NotificationInterface;
 use EzPhp\RateLimiter\ArrayDriver;
 use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\UsesClass;
 use Tests\TestCase;
 
 /**
@@ -48,7 +47,6 @@ final class RateLimitedChannelFakeNotification implements NotificationInterface
 }
 
 #[CoversClass(RateLimitedChannel::class)]
-#[UsesClass(ArrayDriver::class)]
 final class RateLimitedChannelTest extends TestCase
 {
     public function testDeliversWhenUnderLimit(): void
