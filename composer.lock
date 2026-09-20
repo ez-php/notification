@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "2ebd02d34f9835df4bd2816f50f3ee82",
+    "content-hash": "ccebe17a6629916aa34282945d17d2ce",
     "packages": [
         {
             "name": "ez-php/broadcast",
