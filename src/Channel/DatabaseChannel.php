@@ -101,6 +101,9 @@ final class DatabaseChannel implements ChannelInterface
                     created_at      TEXT    NOT NULL
                 )
             ');
+            $this->pdo->exec(
+                'CREATE INDEX IF NOT EXISTS idx_notifications_notifiable ON notifications (notifiable_type, notifiable_id)'
+            );
         } else {
             $this->pdo->exec('
                 CREATE TABLE IF NOT EXISTS notifications (
