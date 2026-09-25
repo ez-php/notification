@@ -308,16 +308,16 @@
         },
         {
             "name": "ez-php/mail",
-            "version": "2.5.0",
+            "version": "2.5.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/ez-php/mail.git",
-                "reference": "d74052cdeacb2dda6f64bf01004918646a97e80e"
+                "reference": "d467a47f25e1e9d6bc6cd17763c7bea844fdbd2b"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/ez-php/mail/zipball/d74052cdeacb2dda6f64bf01004918646a97e80e",
-                "reference": "d74052cdeacb2dda6f64bf01004918646a97e80e",
+                "url": "https://api.github.com/repos/ez-php/mail/zipball/d467a47f25e1e9d6bc6cd17763c7bea844fdbd2b",
+                "reference": "d467a47f25e1e9d6bc6cd17763c7bea844fdbd2b",
                 "shasum": ""
             },
             "require": {
@@ -367,7 +367,7 @@
                 "issues": "https://github.com/ez-php/mail/issues",
                 "source": "https://github.com/ez-php/mail"
             },
-            "time": "2026-09-20T02:42:14+00:00"
+            "time": "2026-09-25T18:54:01+00:00"
         },
         {
             "name": "ez-php/push",
