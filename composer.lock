@@ -431,22 +431,23 @@
         },
         {
             "name": "ez-php/queue",
-            "version": "2.5.1",
+            "version": "2.5.2",
             "source": {
                 "type": "git",
                 "url": "https://github.com/ez-php/queue.git",
-                "reference": "64e0772a243f99099dce2644486aa28ee3bca63e"
+                "reference": "0b9e6912ded077123f30b77a172200c537d4c4c4"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/ez-php/queue/zipball/64e0772a243f99099dce2644486aa28ee3bca63e",
-                "reference": "64e0772a243f99099dce2644486aa28ee3bca63e",
+                "url": "https://api.github.com/repos/ez-php/queue/zipball/0b9e6912ded077123f30b77a172200c537d4c4c4",
+                "reference": "0b9e6912ded077123f30b77a172200c537d4c4c4",
                 "shasum": ""
             },
             "require": {
                 "ext-pdo": "*",
                 "ez-php/console": "^2.0",
                 "ez-php/contracts": "^2.0",
+                "ez-php/support": "^2.0",
                 "php": "^8.5"
             },
             "require-dev": {
@@ -462,6 +463,7 @@
                 "phpunit/phpunit": "^13.0"
             },
             "suggest": {
+                "ext-redis": "Needed for Driver\\RedisDriver",
                 "ez-php/cache": "Needed for Lock\\CacheJobLock (WithoutOverlapping / ShouldBeUnique across processes)",
                 "ez-php/rate-limiter": "Needed for Middleware\\RateLimited"
             },
@@ -496,7 +498,66 @@
                 "issues": "https://github.com/ez-php/queue/issues",
                 "source": "https://github.com/ez-php/queue"
             },
-            "time": "2026-09-25T18:37:32+00:00"
+            "time": "2026-09-26T01:33:15+00:00"
+        },
+        {
+            "name": "ez-php/support",
+            "version": "2.5.2",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/ez-php/support.git",
+                "reference": "0ece40f0fdcbfc4752dd005627d6a0a1d837441a"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/ez-php/support/zipball/0ece40f0fdcbfc4752dd005627d6a0a1d837441a",
+                "reference": "0ece40f0fdcbfc4752dd005627d6a0a1d837441a",
+                "shasum": ""
+            },
+            "require": {
+                "php": "^8.5"
+            },
+            "require-dev": {
+                "ez-php/docker": "^2.0",
+                "friendsofphp/php-cs-fixer": "^3.94",
+                "phpstan/phpstan": "^2.1",
+                "phpstan/phpstan-deprecation-rules": "^2.0",
+                "phpstan/phpstan-strict-rules": "^2.0",
+                "phpunit/phpunit": "^13.0"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "EzPhp\\Support\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Andreas Uretschnig",
+                    "email": "andreas.uretschnig@gmail.com"
+                }
+            ],
+            "description": "General-purpose utility classes for the ez-php ecosystem — Range, WeightedRandom, TimeProbability, DailyQuota",
+            "homepage": "https://github.com/ez-php/support",
+            "keywords": [
+                "daily-quota",
+                "ez-php",
+                "php",
+                "range",
+                "support",
+                "time-probability",
+                "utilities",
+                "weighted-random"
+            ],
+            "support": {
+                "issues": "https://github.com/ez-php/support/issues",
+                "source": "https://github.com/ez-php/support"
+            },
+            "time": "2026-09-26T01:22:37+00:00"
         }
     ],
     "packages-dev": [
@@ -999,16 +1060,16 @@
         },
         {
             "name": "ez-php/rate-limiter",
-            "version": "2.5.1",
+            "version": "2.5.2",
             "source": {
                 "type": "git",
                 "url": "https://github.com/ez-php/rate-limiter.git",
-                "reference": "01b9355e1c81757e7b3e98d3aeca7800731088d7"
+                "reference": "13d321a4f375c32f4356b505d70ee54f359ba50d"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/ez-php/rate-limiter/zipball/01b9355e1c81757e7b3e98d3aeca7800731088d7",
-                "reference": "01b9355e1c81757e7b3e98d3aeca7800731088d7",
+                "url": "https://api.github.com/repos/ez-php/rate-limiter/zipball/13d321a4f375c32f4356b505d70ee54f359ba50d",
+                "reference": "13d321a4f375c32f4356b505d70ee54f359ba50d",
                 "shasum": ""
             },
             "require": {
@@ -1025,6 +1086,9 @@
                 "phpstan/phpstan-deprecation-rules": "^2.0",
                 "phpstan/phpstan-strict-rules": "^2.0",
                 "phpunit/phpunit": "^13.0"
+            },
+            "suggest": {
+                "ext-redis": "Needed for RedisDriver and SlidingWindowRedisDriver"
             },
             "type": "library",
             "autoload": {
@@ -1056,7 +1120,7 @@
                 "issues": "https://github.com/ez-php/rate-limiter/issues",
                 "source": "https://github.com/ez-php/rate-limiter"
             },
-            "time": "2026-09-25T18:37:19+00:00"
+            "time": "2026-09-26T01:33:04+00:00"
         },
         {
             "name": "fidry/cpu-core-counter",
