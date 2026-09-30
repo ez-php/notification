@@ -95,8 +95,6 @@ final class WebhookChannelOrderShipped implements NotificationInterface, ToWebho
  * @package Tests\Channel
  */
 #[CoversClass(WebhookChannel::class)]
-#[UsesClass(WebhookDispatcher::class)]
-#[UsesClass(DeliverWebhookJob::class)]
 #[UsesClass(NotificationException::class)]
 final class WebhookChannelTest extends TestCase
 {
