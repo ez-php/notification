@@ -126,6 +126,39 @@ CREATE TABLE notifications (
 );
 ```
 
+### webhook
+
+Requires `ez-php/webhook` (and its `WebhookServiceProvider`): delivery is HMAC-signed, queued and
+retried. Works for customer webhooks and Slack/Teams incoming-webhook URLs alike.
+
+```php
+use EzPhp\Notification\Channel\ToWebhookInterface;
+
+final class OrderShipped implements NotificationInterface, ToWebhookInterface
+{
+    public function via(): array { return ['webhook']; }
+
+    public function webhookUrl(NotifiableInterface $notifiable): string { return $notifiable->webhookUrl; }
+    public function webhookSecret(NotifiableInterface $notifiable): string { return $notifiable->webhookSecret; }
+    public function toWebhook(NotifiableInterface $notifiable): array { return ['event' => 'order.shipped', 'id' => $this->orderId]; }
+}
+```
+
+### Reading and marking database notifications
+
+```php
+use EzPhp\Notification\Channel\DatabaseNotificationRepository;
+
+$notifications = $app->make(DatabaseNotificationRepository::class);
+
+$notifications->unreadFor($user);          // newest first: [['id' => 3, 'type' => ..., 'data' => [...], 'created_at' => ...], ...]
+$notifications->unreadCount($user);        // e.g. for a badge
+$notifications->markAsRead($user, $id);    // false if it isn't $user's or was already read
+$notifications->markAllAsRead($user);      // number marked
+```
+
+Every query is scoped to the recipient, so passing an id from a request can't touch another user's notifications.
+
 ### Rate-limited delivery
 
 `Channel\RateLimitedChannel` decorates any other channel and caps how often it delivers, via `ez-php/rate-limiter` (soft dependency — must be installed separately, since it's declared in `require-dev` here, not `require`):

@@ -12,6 +12,8 @@ use EzPhp\Notification\Channel\BroadcastChannel;
 use EzPhp\Notification\Channel\DatabaseChannel;
 use EzPhp\Notification\Channel\MailChannel;
 use EzPhp\Notification\Channel\PushChannel;
+use EzPhp\Notification\Channel\WebhookChannel;
+use EzPhp\Webhook\WebhookDispatcher;
 
 /**
  * Class NotificationServiceProvider
@@ -23,6 +25,7 @@ use EzPhp\Notification\Channel\PushChannel;
  *   - 'broadcast' → BroadcastChannel (requires BroadcastServiceProvider)
  *   - 'push'      → PushChannel      (requires PushServiceProvider)
  *   - 'database'  → DatabaseChannel  (requires DatabaseServiceProvider; optional)
+ *   - 'webhook'   → WebhookChannel   (requires ez-php/webhook's WebhookServiceProvider; optional)
  *
  * Optional integrations (resolved gracefully when unavailable):
  *   - DatabaseInterface — if not bound, the 'database' channel is omitted
@@ -51,6 +54,11 @@ final class NotificationServiceProvider extends ServiceProvider
                 $channels['database'] = new DatabaseChannel(
                     $app->make(DatabaseInterface::class)->getPdo()
                 );
+            }
+
+            // The webhook channel needs ez-php/webhook (a suggest) and its dispatcher binding.
+            if (class_exists(WebhookDispatcher::class) && $app->has(WebhookDispatcher::class)) {
+                $channels['webhook'] = new WebhookChannel($app->make(WebhookDispatcher::class));
             }
 
             // Queue support is optional. When QueueInterface is not bound,

@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "8f5862c5e425285598a22d192d8495c6",
+    "content-hash": "71ca05e0681f601d532bfab528e19483",
     "packages": [
         {
             "name": "ez-php/broadcast",
@@ -1121,6 +1121,68 @@
                 "source": "https://github.com/ez-php/rate-limiter"
             },
             "time": "2026-09-26T02:22:10+00:00"
+        },
+        {
+            "name": "ez-php/webhook",
+            "version": "2.5.4",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/ez-php/webhook.git",
+                "reference": "4bb81b54ec86f246bf994782ca189d317166901d"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/ez-php/webhook/zipball/4bb81b54ec86f246bf994782ca189d317166901d",
+                "reference": "4bb81b54ec86f246bf994782ca189d317166901d",
+                "shasum": ""
+            },
+            "require": {
+                "ez-php/contracts": "^2.0",
+                "ez-php/http": "^2.0",
+                "ez-php/http-client": "^2.0",
+                "ez-php/queue": "^2.0",
+                "php": "^8.5"
+            },
+            "require-dev": {
+                "ez-php/docker": "^2.0",
+                "ez-php/testing-application": "^2.0",
+                "friendsofphp/php-cs-fixer": "^3.94",
+                "phpstan/phpstan": "^2.1",
+                "phpstan/phpstan-deprecation-rules": "^2.0",
+                "phpstan/phpstan-strict-rules": "^2.0",
+                "phpunit/phpunit": "^13.0"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "EzPhp\\Webhook\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Andreas Uretschnig",
+                    "email": "andreas.uretschnig@gmail.com"
+                }
+            ],
+            "description": "Outgoing webhooks for the ez-php framework — HMAC-signed delivery as a retrying queue job, plus middleware to verify incoming webhook signatures",
+            "homepage": "https://github.com/ez-php/webhook",
+            "keywords": [
+                "ez-php",
+                "framework",
+                "hmac",
+                "php",
+                "queue",
+                "webhook"
+            ],
+            "support": {
+                "issues": "https://github.com/ez-php/webhook/issues",
+                "source": "https://github.com/ez-php/webhook"
+            },
+            "time": "2026-09-26T02:22:17+00:00"
         },
         {
             "name": "fidry/cpu-core-counter",
