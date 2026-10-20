@@ -8,11 +8,13 @@ use EzPhp\Contracts\ContainerInterface;
 use EzPhp\Contracts\DatabaseInterface;
 use EzPhp\Contracts\QueueInterface;
 use EzPhp\Contracts\ServiceProvider;
+use EzPhp\Mail\MailerInterface;
 use EzPhp\Notification\Channel\BroadcastChannel;
 use EzPhp\Notification\Channel\DatabaseChannel;
 use EzPhp\Notification\Channel\MailChannel;
 use EzPhp\Notification\Channel\PushChannel;
 use EzPhp\Notification\Channel\WebhookChannel;
+use EzPhp\Push\Pusher;
 use EzPhp\Webhook\WebhookDispatcher;
 
 /**
@@ -42,9 +44,11 @@ final class NotificationServiceProvider extends ServiceProvider
     {
         $this->app->bind(Notifier::class, function (ContainerInterface $app): Notifier {
             $channels = [
-                'mail' => new MailChannel(),
+                // Bound services are injected; without a binding the channels fall back
+                // to their module's façade (Mail::send(), Push::send()).
+                'mail' => new MailChannel($app->has(MailerInterface::class) ? $app->make(MailerInterface::class) : null),
                 'broadcast' => new BroadcastChannel(),
-                'push' => new PushChannel(),
+                'push' => new PushChannel($app->has(Pusher::class) ? $app->make(Pusher::class) : null),
             ];
 
             // The database channel requires DatabaseInterface. Register it only

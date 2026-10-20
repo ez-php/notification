@@ -6,7 +6,6 @@ namespace Tests\Channel;
 
 use EzPhp\Mail\Mail;
 use EzPhp\Mail\Mailable;
-use EzPhp\Mail\MailerInterface;
 use EzPhp\Notification\Channel\MailChannel;
 use EzPhp\Notification\Channel\ToMailInterface;
 use EzPhp\Notification\NotifiableInterface;
@@ -15,29 +14,8 @@ use EzPhp\Notification\NotificationInterface;
 use EzPhp\Notification\Queue\SendMailNotificationJob;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\UsesClass;
+use Tests\Support\NotificationSpyMailer;
 use Tests\TestCase;
-
-/**
- * Spy mailer that captures every sent Mailable.
- */
-final class SpyMailer implements MailerInterface
-{
-    /** @var list<Mailable> */
-    private array $sent = [];
-
-    public function send(Mailable $mailable): void
-    {
-        $this->sent[] = $mailable;
-    }
-
-    /**
-     * @return list<Mailable>
-     */
-    public function getSent(): array
-    {
-        return $this->sent;
-    }
-}
 
 /**
  * Class MailChannelTest
@@ -49,12 +27,12 @@ final class SpyMailer implements MailerInterface
 #[UsesClass(\EzPhp\Notification\NotificationException::class)]
 final class MailChannelTest extends TestCase
 {
-    private SpyMailer $mailer;
+    private NotificationSpyMailer $mailer;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->mailer = new SpyMailer();
+        $this->mailer = new NotificationSpyMailer();
         Mail::setMailer($this->mailer);
     }
 
@@ -100,6 +78,33 @@ final class MailChannelTest extends TestCase
         $sent = $this->mailer->getSent();
         $this->assertCount(1, $sent);
         $this->assertSame($mailable, $sent[0]);
+    }
+
+    public function testSendUsesTheInjectedMailerInsteadOfTheFacade(): void
+    {
+        $injected = new NotificationSpyMailer();
+        $mailable = (new Mailable())->to('user@example.com')->subject('Injected');
+
+        $notification = new class ($mailable) implements NotificationInterface, ToMailInterface {
+            public function __construct(private readonly Mailable $mailable)
+            {
+            }
+
+            public function via(): array
+            {
+                return ['mail'];
+            }
+
+            public function toMail(NotifiableInterface $notifiable): Mailable
+            {
+                return $this->mailable;
+            }
+        };
+
+        (new MailChannel($injected))->send($this->makeNotifiable(), $notification);
+
+        $this->assertSame([$mailable], $injected->getSent());
+        $this->assertSame([], $this->mailer->getSent(), 'the facade mailer is not touched');
     }
 
     public function testSendThrowsWhenNotificationDoesNotImplementToMailInterface(): void

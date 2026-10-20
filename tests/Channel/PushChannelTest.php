@@ -84,6 +84,16 @@ final class PushChannelTest extends TestCase
         $this->assertSame('Welcome!', $messages[0]->body);
     }
 
+    public function testSendUsesTheInjectedPusherInsteadOfTheFacade(): void
+    {
+        $injected = new ArrayDriver();
+
+        (new PushChannel(new Pusher($injected)))->send($this->makeNotifiable(), $this->makePushNotification());
+
+        $this->assertCount(1, $injected->sentTo('device-token-42'));
+        $this->assertSame([], $this->driver->sentTo('device-token-42'), 'the facade pusher is not touched');
+    }
+
     public function testSendThrowsWhenNotificationDoesNotImplementToPushInterface(): void
     {
         $notification = new class () implements NotificationInterface {

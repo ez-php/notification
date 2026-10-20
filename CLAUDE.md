@@ -286,9 +286,9 @@ src/
 │   ├── ToBroadcastInterface.php       — broadcastOn/broadcastAs/broadcastWith; required for 'broadcast' channel
 │   ├── ToPushInterface.php            — pushToken/toPush; required for 'push' channel
 │   ├── ToDatabaseInterface.php        — toDatabase(notifiable): array; required for 'database' channel
-│   ├── MailChannel.php                — implements QueuableChannelInterface; calls Mail::send()
+│   ├── MailChannel.php                — implements QueuableChannelInterface; injected MailerInterface, Mail::send() fallback
 │   ├── BroadcastChannel.php           — implements QueuableChannelInterface; calls Broadcast::to()
-│   ├── PushChannel.php                — implements QueuableChannelInterface; calls Push::send()
+│   ├── PushChannel.php                — implements QueuableChannelInterface; injected Pusher, Push::send() fallback
 │   ├── WebhookChannel.php             — ToWebhookInterface → ez-php/webhook WebhookDispatcher (signed, queued, retried); soft dependency
 │   ├── ToWebhookInterface.php         — webhookUrl() / webhookSecret() / toWebhook() payload
 │   ├── DatabaseChannel.php            — implements ChannelInterface; inserts into notifications table (auto-created)
@@ -303,6 +303,8 @@ tests/
 ├── TestCase.php                       — base PHPUnit test case
 ├── NotifierTest.php                   — covers Notifier: sync dispatch, multi-channel, queuing, sendNow bypass
 ├── NotificationTest.php               — covers Notification facade: delegation, uninitialized throw, reset, replace
+├── NotificationServiceProviderTest.php — register/boot smoke test; the mail channel uses the bound MailerInterface
+├── Support/NotificationSpyMailer.php  — recording MailerInterface shared by the mail-channel and provider tests
 └── Channel/
     ├── MailChannelTest.php            — covers MailChannel + SendMailNotificationJob
     ├── BroadcastChannelTest.php       — covers BroadcastChannel + SendBroadcastNotificationJob
@@ -388,7 +390,7 @@ Static facade mirroring the `Mail` and `Broadcast` facades. Holds a `?Notifier` 
 
 ### MailChannel (`src/Channel/MailChannel.php`)
 
-Validates that the notification implements `ToMailInterface`, then calls `Mail::send($notification->toMail($notifiable))`. `toJob()` pre-resolves the `Mailable` and wraps it in `SendMailNotificationJob`.
+Validates that the notification implements `ToMailInterface`, then sends `$notification->toMail($notifiable)` through the constructor-injected `?MailerInterface` — or, constructed without one, `Mail::send()`. `toJob()` pre-resolves the `Mailable` and wraps it in `SendMailNotificationJob`.
 
 ---
 
@@ -404,7 +406,7 @@ Validates `ToWebhookInterface` and hands URL, payload and secret to `ez-php/webh
 
 ### PushChannel (`src/Channel/PushChannel.php`)
 
-Validates `ToPushInterface`, then calls `Push::send(token, message)` with the device token and `PushMessage` returned by the notification's `pushToken()`/`toPush()` methods. `toJob()` pre-resolves both into `SendPushNotificationJob`.
+Validates `ToPushInterface`, then sends through the constructor-injected `?Pusher` (fallback: `Push::send()`) the device token and `PushMessage` returned by the notification's `pushToken()`/`toPush()` methods. `toJob()` pre-resolves both into `SendPushNotificationJob`.
 
 ---
 
@@ -442,7 +444,7 @@ All three extend `EzPhp\Queue\Job` and implement `handle()` with zero parameters
 - **`RateLimitedChannel` drops on throttle, it does not queue or retry.** This matches `ThrottleMiddleware` returning 429 rather than buffering the request — the decorator's job is to cap delivery rate, not to guarantee eventual delivery. An application that wants "deliver later instead of drop" should combine this with a `QueuableChannelInterface` channel and its own backoff logic.
 - **`ez-php/rate-limiter` is a soft dependency, `require-dev` only** — same reasoning as `ez-php/mail`'s `Job\SendMailableJob`: a module that pulls in a package as a hard `require` forces it on every consumer, even ones that never use the decorator. PSR-4 only resolves `RateLimitedChannel.php` (and therefore `RateLimiterInterface`) when something actually references the class.
 - **`routeNotificationFor()` returns `string|int`.** All built-in channels need either a string address or an integer/string ID. This union type avoids `mixed` while accommodating all use cases.
-- **`PushChannel` depends on `ez-php/push`'s `Push` facade, not the container.** This mirrors `MailChannel`/`BroadcastChannel`, which likewise call their module's static facade (`Mail::send()`, `Broadcast::to()`) rather than resolving a service from the DI container — the facade is the module's public API. `ez-php/push` is a hard `require` of this package, not optional, matching `ez-php/mail` and `ez-php/broadcast`.
+- **`MailChannel`/`PushChannel` take their delivery service by constructor injection, with the façade as fallback.** `NotificationServiceProvider` passes the bound `MailerInterface` / `Pusher` when the container has one, like `WebhookChannel` (`WebhookDispatcher`) and `DatabaseChannel` (`PDO`); a channel built without one (`new MailChannel()`, or no binding) calls `Mail::send()` / `Push::send()` as before. Synchronous delivery therefore no longer depends on the façades having been wired first, and tests can inject a fake instead of setting global state. The queued `Send*NotificationJob`s still use the façades — a serialized job cannot carry the service — and `BroadcastChannel` keeps `Broadcast::to()`, whose façade holds the configured driver. `ez-php/push` is a hard `require` of this package, not optional, matching `ez-php/mail` and `ez-php/broadcast`.
 - **No `Notifiable` trait or abstract base class.** Implementing `routeNotificationFor()` is the entire contract. Adding a trait or base class would couple application models to the module without benefit.
 
 ---
@@ -451,9 +453,9 @@ All three extend `EzPhp\Queue\Job` and implement `handle()` with zero parameters
 
 - **No external infrastructure required.** All tests run in-process.
 - **`DatabaseChannelTest`** — Uses SQLite `:memory:` via plain `PDO`. No MySQL or Docker required.
-- **`MailChannelTest`** — Injects `SpyMailer implements MailerInterface` via `Mail::setMailer()`. Uses `Mail::resetMailer()` in `tearDown()` to prevent state leaking. `SpyMailer` is a file-scope named class (not anonymous) to avoid PHPStan's `property.onlyWritten` check on reference-backed properties.
+- **`MailChannelTest`** — Injects `Support\NotificationSpyMailer implements MailerInterface` via `Mail::setMailer()` for the façade fallback, and directly into the constructor for the injected path (asserting the façade mailer stays untouched). Uses `Mail::resetMailer()` in `tearDown()` to prevent state leaking. The spy is a named, autoloadable class in `tests/Support/` (not anonymous, and not file-scoped inside one test) so `NotificationServiceProviderTest` can use it when run on its own, and PHPStan's `property.onlyWritten` check does not trip over a reference-backed property.
 - **`BroadcastChannelTest`** — Uses `ArrayDriver` (real in-memory driver from `ez-php/broadcast`) via `Broadcast::setBroadcaster()`. Uses `Broadcast::resetBroadcaster()` in `tearDown()`.
-- **`PushChannelTest`** — Uses `ArrayDriver` (real in-memory driver from `ez-php/push`) via `Push::setPusher(new Pusher($driver))`. Uses `Push::resetPusher()` in `tearDown()`.
+- **`PushChannelTest`** — Uses `ArrayDriver` (real in-memory driver from `ez-php/push`) via `Push::setPusher(new Pusher($driver))`, and a second `ArrayDriver` behind a constructor-injected `Pusher` for the injected path. Uses `Push::resetPusher()` in `tearDown()`.
 - **`NotifierTest`** — All channels are anonymous-class or file-scope-class stubs. `SpyQueue implements QueueInterface` captures `push()` calls. No external infrastructure.
 - **`NotificationTest`** — Tests the static facade (set/reset/delegate). Uses `Notification::resetNotifier()` in `setUp()` and `tearDown()`.
 - **`#[CoversClass]` required** — `beStrictAboutCoverageMetadata=true` is set in `phpunit.xml`.
