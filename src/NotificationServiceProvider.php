@@ -13,8 +13,10 @@ use EzPhp\Notification\Channel\BroadcastChannel;
 use EzPhp\Notification\Channel\DatabaseChannel;
 use EzPhp\Notification\Channel\MailChannel;
 use EzPhp\Notification\Channel\PushChannel;
+use EzPhp\Notification\Channel\SmsChannel;
 use EzPhp\Notification\Channel\WebhookChannel;
 use EzPhp\Push\Pusher;
+use EzPhp\Sms\SmsSenderInterface;
 use EzPhp\Webhook\WebhookDispatcher;
 
 /**
@@ -27,6 +29,7 @@ use EzPhp\Webhook\WebhookDispatcher;
  *   - 'broadcast' → BroadcastChannel (requires BroadcastServiceProvider)
  *   - 'push'      → PushChannel      (requires PushServiceProvider)
  *   - 'database'  → DatabaseChannel  (requires DatabaseServiceProvider; optional)
+ *   - 'sms'       → SmsChannel       (requires ez-php/sms's SmsServiceProvider; optional)
  *   - 'webhook'   → WebhookChannel   (requires ez-php/webhook's WebhookServiceProvider; optional)
  *
  * Optional integrations (resolved gracefully when unavailable):
@@ -63,6 +66,11 @@ final class NotificationServiceProvider extends ServiceProvider
             // The webhook channel needs ez-php/webhook (a suggest) and its dispatcher binding.
             if (class_exists(WebhookDispatcher::class) && $app->has(WebhookDispatcher::class)) {
                 $channels['webhook'] = new WebhookChannel($app->make(WebhookDispatcher::class));
+            }
+
+            // The sms channel needs ez-php/sms (a suggest) and its sender binding.
+            if (interface_exists(SmsSenderInterface::class) && $app->has(SmsSenderInterface::class)) {
+                $channels['sms'] = new SmsChannel($app->make(SmsSenderInterface::class));
             }
 
             // Queue support is optional. When QueueInterface is not bound,

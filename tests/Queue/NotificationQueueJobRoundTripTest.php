@@ -8,13 +8,15 @@ use EzPhp\Mail\Mailable;
 use EzPhp\Notification\Queue\SendBroadcastNotificationJob;
 use EzPhp\Notification\Queue\SendMailNotificationJob;
 use EzPhp\Notification\Queue\SendPushNotificationJob;
+use EzPhp\Notification\Queue\SendSmsNotificationJob;
 use EzPhp\Push\PushMessage;
 use EzPhp\Queue\Driver\InMemoryDriver;
+use EzPhp\Sms\SmsMessage;
 use PHPUnit\Framework\Attributes\CoversClass;
 use Tests\TestCase;
 
 /**
- * The queued notification jobs hold objects (Mailable, PushMessage); they must
+ * The queued notification jobs hold objects (Mailable, PushMessage, SmsMessage); they must
  * survive a queue push/pop — pop() used to fail with a TypeError on them.
  *
  * @package Tests\Queue
@@ -22,6 +24,7 @@ use Tests\TestCase;
 #[CoversClass(SendMailNotificationJob::class)]
 #[CoversClass(SendPushNotificationJob::class)]
 #[CoversClass(SendBroadcastNotificationJob::class)]
+#[CoversClass(SendSmsNotificationJob::class)]
 final class NotificationQueueJobRoundTripTest extends TestCase
 {
     public function testMailNotificationJobSurvivesQueueRoundTrip(): void
@@ -46,5 +49,13 @@ final class NotificationQueueJobRoundTripTest extends TestCase
         $queue->push(new SendBroadcastNotificationJob('orders', 'shipped', ['id' => 1]));
 
         $this->assertInstanceOf(SendBroadcastNotificationJob::class, $queue->pop());
+    }
+
+    public function testSmsNotificationJobSurvivesQueueRoundTrip(): void
+    {
+        $queue = new InMemoryDriver();
+        $queue->push(new SendSmsNotificationJob('+4366412345678', new SmsMessage('Body', 'EzPhp')));
+
+        $this->assertInstanceOf(SendSmsNotificationJob::class, $queue->pop());
     }
 }

@@ -152,7 +152,7 @@ php make_module.php <name> --description="..." --services=mysql,redis --extensio
 `<name>` is the kebab-case package name; the namespace is derived as
 `EzPhp\<PascalCase>` (each `-`-separated word upper-cased) unless `--namespace=`
 overrides it. Existing exceptions the guess gets wrong: `bignum` → `BigNum`,
-`dataloader` → `DataLoader`, `dotenv` → `Env`, `graphql` → `GraphQL`, `oauth` → `OAuth`,
+`dataloader` → `DataLoader`, `dotenv` → `Env`, `graphql` → `GraphQL`, `graphql-subscriptions` → `GraphQLSubscriptions`, `oauth` → `OAuth`,
 `opcache` → `OPCache`, `openapi` → `OpenApi`, `swagger-ui` → `SwaggerUI`, `webauthn` → `WebAuthn` and
 `websocket` → `WebSocket`; `websocket-client` → `WebsocketClient`, `websocket-tls` → `WebsocketTls`,
 `webauthn-metadata` → `WebauthnMetadata` and `metrics-statsd` → `MetricsStatsd` are
@@ -285,10 +285,12 @@ src/
 │   ├── ToMailInterface.php            — toMail(notifiable): Mailable; required for 'mail' channel
 │   ├── ToBroadcastInterface.php       — broadcastOn/broadcastAs/broadcastWith; required for 'broadcast' channel
 │   ├── ToPushInterface.php            — pushToken/toPush; required for 'push' channel
+│   ├── ToSmsInterface.php             — smsTo/toSms; required for 'sms' channel
 │   ├── ToDatabaseInterface.php        — toDatabase(notifiable): array; required for 'database' channel
 │   ├── MailChannel.php                — implements QueuableChannelInterface; injected MailerInterface, Mail::send() fallback
 │   ├── BroadcastChannel.php           — implements QueuableChannelInterface; calls Broadcast::to()
 │   ├── PushChannel.php                — implements QueuableChannelInterface; injected Pusher, Push::send() fallback
+│   ├── SmsChannel.php                 — implements QueuableChannelInterface; injected ez-php/sms SmsSenderInterface; soft dependency
 │   ├── WebhookChannel.php             — ToWebhookInterface → ez-php/webhook WebhookDispatcher (signed, queued, retried); soft dependency
 │   ├── ToWebhookInterface.php         — webhookUrl() / webhookSecret() / toWebhook() payload
 │   ├── DatabaseChannel.php            — implements ChannelInterface; inserts into notifications table (auto-created)
@@ -297,7 +299,8 @@ src/
 └── Queue/
     ├── SendMailNotificationJob.php    — Job storing pre-built Mailable; handle() calls Mail::send()
     ├── SendBroadcastNotificationJob.php — Job storing channel/event/payload; handle() calls Broadcast::to()
-    └── SendPushNotificationJob.php    — Job storing token/PushMessage; handle() calls Push::send()
+    ├── SendPushNotificationJob.php    — Job storing token/PushMessage; handle() calls Push::send()
+    └── SendSmsNotificationJob.php     — Job storing number/SmsMessage; handle() calls Sms::send()
 
 tests/
 ├── TestCase.php                       — base PHPUnit test case
@@ -309,6 +312,7 @@ tests/
     ├── MailChannelTest.php            — covers MailChannel + SendMailNotificationJob
     ├── BroadcastChannelTest.php       — covers BroadcastChannel + SendBroadcastNotificationJob
     ├── PushChannelTest.php            — covers PushChannel + SendPushNotificationJob
+    ├── SmsChannelTest.php             — covers SmsChannel + SendSmsNotificationJob via ez-php/sms's ArrayDriver
     ├── DatabaseChannelTest.php        — covers DatabaseChannel with SQLite :memory: (no MySQL required)
     └── RateLimitedChannelTest.php     — covers RateLimitedChannel: delivery under limit, drop over limit, per-key isolation via ez-php/rate-limiter's ArrayDriver
 ```
@@ -340,6 +344,7 @@ Returns the delivery address for the given channel:
 - `'mail'`      → email address (string)
 - `'broadcast'` → channel name (string)
 - `'push'`      → device token (string)
+- `'sms'`       → phone number, E.164 (string)
 - `'database'`  → entity ID (int or string)
 
 ---
@@ -381,6 +386,7 @@ Static facade mirroring the `Mail` and `Broadcast` facades. Holds a `?Notifier` 
 | `broadcast` | yes | Requires `BroadcastServiceProvider` to be registered before using |
 | `push` | yes | Requires `PushServiceProvider` to be registered before using |
 | `database` | only if `DatabaseInterface` is bound | Wrapped in try/catch — omitted silently if not bound |
+| `sms` | only if `SmsSenderInterface` is bound | Requires ez-php/sms's `SmsServiceProvider` |
 
 `QueueInterface` is also resolved in a try/catch — missing binding means synchronous-only mode.
 
@@ -408,6 +414,10 @@ Validates `ToWebhookInterface` and hands URL, payload and secret to `ez-php/webh
 
 Validates `ToPushInterface`, then sends through the constructor-injected `?Pusher` (fallback: `Push::send()`) the device token and `PushMessage` returned by the notification's `pushToken()`/`toPush()` methods. `toJob()` pre-resolves both into `SendPushNotificationJob`.
 
+### SmsChannel (`src/Channel/SmsChannel.php`)
+
+Validates `ToSmsInterface`, then sends the phone number and `SmsMessage` returned by `smsTo()`/`toSms()` through the constructor-injected `SmsSenderInterface` (required — no façade fallback, since the channel is only registered when the sender is bound). `toJob()` pre-resolves both into `SendSmsNotificationJob`, whose `handle()` uses the `Sms` façade. `ez-php/sms` is a `suggest` (+ `require-dev`).
+
 ---
 
 ### DatabaseChannel (`src/Channel/DatabaseChannel.php`)
@@ -426,9 +436,9 @@ Decorator implementing `ChannelInterface` (not `QueuableChannelInterface` — it
 
 ---
 
-### SendMailNotificationJob / SendBroadcastNotificationJob / SendPushNotificationJob (`src/Queue/`)
+### SendMailNotificationJob / SendBroadcastNotificationJob / SendPushNotificationJob / SendSmsNotificationJob (`src/Queue/`)
 
-All three extend `EzPhp\Queue\Job` and implement `handle()` with zero parameters (Worker contract). All data needed for delivery is embedded at construction time, before serialisation. `Mailable` is PHP-serialisable. Broadcast data (string + array) is inherently serialisable. `PushMessage` is a `readonly` value object of scalars/arrays and is inherently serialisable too.
+All four extend `EzPhp\Queue\Job` and implement `handle()` with zero parameters (Worker contract). All data needed for delivery is embedded at construction time, before serialisation. `Mailable` is PHP-serialisable. Broadcast data (string + array) is inherently serialisable. `PushMessage` and `SmsMessage` are `readonly` value objects of scalars/arrays and are inherently serialisable too.
 
 ---
 
@@ -443,6 +453,7 @@ All three extend `EzPhp\Queue\Job` and implement `handle()` with zero parameters
 - **`RateLimitedChannel` requires an explicit `$keyResolver`, with no default.** `NotifiableInterface` only exposes identity per-channel via `routeNotificationFor(string $channel)`, and `NotificationInterface` carries no id of its own — there is no generically-correct key to guess (unlike `ThrottleMiddleware`, which can default to the client IP from the `Request` it's always given). The caller must supply one.
 - **`RateLimitedChannel` drops on throttle, it does not queue or retry.** This matches `ThrottleMiddleware` returning 429 rather than buffering the request — the decorator's job is to cap delivery rate, not to guarantee eventual delivery. An application that wants "deliver later instead of drop" should combine this with a `QueuableChannelInterface` channel and its own backoff logic.
 - **`ez-php/rate-limiter` is a soft dependency, `require-dev` only** — same reasoning as `ez-php/mail`'s `Job\SendMailableJob`: a module that pulls in a package as a hard `require` forces it on every consumer, even ones that never use the decorator. PSR-4 only resolves `RateLimitedChannel.php` (and therefore `RateLimiterInterface`) when something actually references the class.
+- **`ez-php/sms` is a soft dependency (`suggest` + `require-dev`)**, like `ez-php/webhook`, not a hard `require` like `ez-php/push`: SMS needs a paid provider account most applications don't have, so it is not forced on every consumer. The provider registers the `sms` channel only when `interface_exists(SmsSenderInterface::class)` and the container has a binding — PSR-4 never loads `SmsChannel` otherwise.
 - **`routeNotificationFor()` returns `string|int`.** All built-in channels need either a string address or an integer/string ID. This union type avoids `mixed` while accommodating all use cases.
 - **`MailChannel`/`PushChannel` take their delivery service by constructor injection, with the façade as fallback.** `NotificationServiceProvider` passes the bound `MailerInterface` / `Pusher` when the container has one, like `WebhookChannel` (`WebhookDispatcher`) and `DatabaseChannel` (`PDO`); a channel built without one (`new MailChannel()`, or no binding) calls `Mail::send()` / `Push::send()` as before. Synchronous delivery therefore no longer depends on the façades having been wired first, and tests can inject a fake instead of setting global state. The queued `Send*NotificationJob`s still use the façades — a serialized job cannot carry the service — and `BroadcastChannel` keeps `Broadcast::to()`, whose façade holds the configured driver. `ez-php/push` is a hard `require` of this package, not optional, matching `ez-php/mail` and `ez-php/broadcast`.
 - **No `Notifiable` trait or abstract base class.** Implementing `routeNotificationFor()` is the entire contract. Adding a trait or base class would couple application models to the module without benefit.
@@ -456,6 +467,7 @@ All three extend `EzPhp\Queue\Job` and implement `handle()` with zero parameters
 - **`MailChannelTest`** — Injects `Support\NotificationSpyMailer implements MailerInterface` via `Mail::setMailer()` for the façade fallback, and directly into the constructor for the injected path (asserting the façade mailer stays untouched). Uses `Mail::resetMailer()` in `tearDown()` to prevent state leaking. The spy is a named, autoloadable class in `tests/Support/` (not anonymous, and not file-scoped inside one test) so `NotificationServiceProviderTest` can use it when run on its own, and PHPStan's `property.onlyWritten` check does not trip over a reference-backed property.
 - **`BroadcastChannelTest`** — Uses `ArrayDriver` (real in-memory driver from `ez-php/broadcast`) via `Broadcast::setBroadcaster()`. Uses `Broadcast::resetBroadcaster()` in `tearDown()`.
 - **`PushChannelTest`** — Uses `ArrayDriver` (real in-memory driver from `ez-php/push`) via `Push::setPusher(new Pusher($driver))`, and a second `ArrayDriver` behind a constructor-injected `Pusher` for the injected path. Uses `Push::resetPusher()` in `tearDown()`.
+- **`SmsChannelTest`** — Uses `ez-php/sms`'s `ArrayDriver`, injected for `send()` and set via `Sms::setSender()` for the queued job's façade path. Uses `Sms::resetSender()` in `tearDown()`.
 - **`NotifierTest`** — All channels are anonymous-class or file-scope-class stubs. `SpyQueue implements QueueInterface` captures `push()` calls. No external infrastructure.
 - **`NotificationTest`** — Tests the static facade (set/reset/delegate). Uses `Notification::resetNotifier()` in `setUp()` and `tearDown()`.
 - **`#[CoversClass]` required** — `beStrictAboutCoverageMetadata=true` is set in `phpunit.xml`.
@@ -469,7 +481,7 @@ All three extend `EzPhp\Queue\Job` and implement `handle()` with zero parameters
 | Notification preferences, read-state UI or real-time unread badges | Application layer (`DatabaseNotificationRepository` covers the queries) |
 | Unread notification count badges | Application layer |
 | In-process domain events | `ez-php/events` |
-| SMS / phone channel | Application layer |
+| SMS provider drivers (Twilio, Vonage) | `ez-php/sms` — this module only adapts its `SmsSenderInterface` as the `sms` channel |
 | Slack SDK / Block Kit builders | Application layer — Slack is a `WebhookChannel` URL + payload |
 | Template rendering for notification bodies | `ez-php/view` (use in `toMail()`) |
 | Notification preferences per user | Application layer |

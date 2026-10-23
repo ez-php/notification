@@ -1,6 +1,6 @@
 # ez-php/notification
 
-Multi-channel notification orchestration for ez-php applications. Routes a single notification to any combination of mail, broadcast, and database channels. Optionally dispatches deliveries asynchronously via the queue.
+Multi-channel notification orchestration for ez-php applications. Routes a single notification to any combination of mail, broadcast, push, sms, webhook and database channels. Optionally dispatches deliveries asynchronously via the queue.
 
 ## Installation
 
@@ -144,6 +144,25 @@ final class OrderShipped implements NotificationInterface, ToWebhookInterface
 }
 ```
 
+### sms
+
+Requires `ez-php/sms` (and its `SmsServiceProvider`) — the channel is registered only when
+`SmsSenderInterface` is bound. Queued like mail/push when the notification implements
+`ShouldQueueInterface`.
+
+```php
+use EzPhp\Notification\Channel\ToSmsInterface;
+use EzPhp\Sms\SmsMessage;
+
+final class OrderShipped implements NotificationInterface, ToSmsInterface
+{
+    public function via(): array { return ['sms']; }
+
+    public function smsTo(NotifiableInterface $notifiable): string { return (string) $notifiable->routeNotificationFor('sms'); }
+    public function toSms(NotifiableInterface $notifiable): SmsMessage { return new SmsMessage('Your order has shipped.'); }
+}
+```
+
 ### Reading and marking database notifications
 
 ```php
@@ -230,6 +249,7 @@ Notification::sendNow($user, new WelcomeNotification());
 | `mail` | `MailServiceProvider` | — |
 | `broadcast` | `BroadcastServiceProvider` | — |
 | `database` | `DatabaseServiceProvider` | yes — omitted if not bound |
+| `sms` | `ez-php/sms` + `SmsServiceProvider` | yes — omitted if `SmsSenderInterface` is not bound |
 
 Queue support (`ShouldQueueInterface`) is also optional — if `QueueServiceProvider` is not
 registered, all notifications are sent synchronously.
