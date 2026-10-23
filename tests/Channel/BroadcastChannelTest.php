@@ -89,6 +89,16 @@ final class BroadcastChannelTest extends TestCase
         $this->assertSame(['msg' => 'hello'], $events[0]['payload']);
     }
 
+    public function testSendUsesTheInjectedBroadcasterInsteadOfTheFacade(): void
+    {
+        $injected = new ArrayDriver();
+        $channel = new BroadcastChannel(new Broadcaster($injected));
+        $channel->send($this->makeNotifiable(), $this->makeBroadcastNotification());
+
+        $this->assertCount(1, $injected->eventsOn('users.42'));
+        $this->assertSame([], $this->driver->eventsOn('users.42'));
+    }
+
     public function testSendThrowsWhenNotificationDoesNotImplementToBroadcastInterface(): void
     {
         $notification = new class () implements NotificationInterface {

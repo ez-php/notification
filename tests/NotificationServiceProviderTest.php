@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace Tests;
 
+use EzPhp\Broadcast\Broadcaster;
+use EzPhp\Broadcast\Driver\ArrayDriver as BroadcastArrayDriver;
 use EzPhp\Mail\Mailable;
 use EzPhp\Mail\MailerInterface;
 use EzPhp\Notification\Channel\BroadcastChannel;
 use EzPhp\Notification\Channel\MailChannel;
 use EzPhp\Notification\Channel\PushChannel;
 use EzPhp\Notification\Channel\SmsChannel;
+use EzPhp\Notification\Channel\ToBroadcastInterface;
 use EzPhp\Notification\Channel\ToMailInterface;
 use EzPhp\Notification\Channel\ToSmsInterface;
 use EzPhp\Notification\NotifiableInterface;
@@ -101,6 +104,53 @@ final class NotificationServiceProviderTest extends TestCase
         $notifier->sendNow($notifiable, $notification);
 
         $this->assertSame([$mailable], $mailer->getSent());
+    }
+
+    /**
+     * The broadcast channel publishes through the container's Broadcaster — no
+     * Broadcast::setBroadcaster() needed when one is bound.
+     */
+    public function test_broadcast_channel_uses_the_bound_broadcaster(): void
+    {
+        $driver = new BroadcastArrayDriver();
+        $container = new FakeContainer(new FakeConfig([]));
+        $container->instance(Broadcaster::class, new Broadcaster($driver));
+        (new NotificationServiceProvider($container))->register();
+
+        $notification = new class () implements NotificationInterface, ToBroadcastInterface {
+            public function via(): array
+            {
+                return ['broadcast'];
+            }
+
+            public function broadcastOn(NotifiableInterface $notifiable): string
+            {
+                return 'users.1';
+            }
+
+            public function broadcastAs(NotifiableInterface $notifiable): string
+            {
+                return 'bound';
+            }
+
+            /** @return array<string, mixed> */
+            public function broadcastWith(NotifiableInterface $notifiable): array
+            {
+                return [];
+            }
+        };
+        $notifiable = new class () implements NotifiableInterface {
+            public function routeNotificationFor(string $channel): int
+            {
+                return 1;
+            }
+        };
+
+        $notifier = $container->make(Notifier::class);
+        $this->assertInstanceOf(Notifier::class, $notifier);
+        $notifier->sendNow($notifiable, $notification);
+
+        $this->assertCount(1, $driver->eventsOn('users.1'));
     }
 
     public function test_sms_channel_is_registered_when_a_sender_is_bound(): void

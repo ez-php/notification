@@ -289,7 +289,7 @@ src/
 │   ├── ToSmsInterface.php             — smsTo/toSms; required for 'sms' channel
 │   ├── ToDatabaseInterface.php        — toDatabase(notifiable): array; required for 'database' channel
 │   ├── MailChannel.php                — implements QueuableChannelInterface; injected MailerInterface, Mail::send() fallback
-│   ├── BroadcastChannel.php           — implements QueuableChannelInterface; calls Broadcast::to()
+│   ├── BroadcastChannel.php           — implements QueuableChannelInterface; publishes via the injected Broadcaster (Broadcast::to() fallback)
 │   ├── PushChannel.php                — implements QueuableChannelInterface; injected Pusher, Push::send() fallback
 │   ├── SmsChannel.php                 — implements QueuableChannelInterface; injected ez-php/sms SmsSenderInterface; soft dependency
 │   ├── WebhookChannel.php             — ToWebhookInterface → ez-php/webhook WebhookDispatcher (signed, queued, retried); soft dependency
@@ -305,9 +305,10 @@ src/
 
 tests/
 ├── TestCase.php                       — base PHPUnit test case
+├── Queue/NotificationQueueJobRoundTripTest.php  — queued jobs holding Mailable/PushMessage/SmsMessage survive a queue push/pop
 ├── NotifierTest.php                   — covers Notifier: sync dispatch, multi-channel, queuing, sendNow bypass
 ├── NotificationTest.php               — covers Notification facade: delegation, uninitialized throw, reset, replace
-├── NotificationServiceProviderTest.php — register/boot smoke test; the mail channel uses the bound MailerInterface
+├── NotificationServiceProviderTest.php — register/boot smoke test; the mail and broadcast channels use the bound MailerInterface / Broadcaster
 ├── Support/NotificationSpyMailer.php  — recording MailerInterface shared by the mail-channel and provider tests
 └── Channel/
     ├── MailChannelTest.php            — covers MailChannel + SendMailNotificationJob
@@ -315,6 +316,8 @@ tests/
     ├── PushChannelTest.php            — covers PushChannel + SendPushNotificationJob
     ├── SmsChannelTest.php             — covers SmsChannel + SendSmsNotificationJob via ez-php/sms's ArrayDriver
     ├── DatabaseChannelTest.php        — covers DatabaseChannel with SQLite :memory: (no MySQL required)
+    ├── DatabaseNotificationRepositoryTest.php  — unreadFor() order/limit, markAsRead()/markAllAsRead() scoped to the recipient, unreadCount()
+    ├── WebhookChannelTest.php  — dispatches a signed delivery job; rejects notifications without ToWebhookInterface
     └── RateLimitedChannelTest.php     — covers RateLimitedChannel: delivery under limit, drop over limit, per-key isolation via ez-php/rate-limiter's ArrayDriver
 ```
 
@@ -403,7 +406,7 @@ Validates that the notification implements `ToMailInterface`, then sends `$notif
 
 ### BroadcastChannel (`src/Channel/BroadcastChannel.php`)
 
-Validates `ToBroadcastInterface`, then calls `Broadcast::to(channel, event, payload)`. `toJob()` pre-resolves all three values into `SendBroadcastNotificationJob`.
+Validates `ToBroadcastInterface`, then calls `to(channel, event, payload)` on the injected `Broadcaster` (constructor argument, `null` = the `Broadcast::to()` façade). `toJob()` pre-resolves all three values into `SendBroadcastNotificationJob`.
 
 ---
 
@@ -456,7 +459,7 @@ All four extend `EzPhp\Queue\Job` and implement `handle()` with zero parameters 
 - **`ez-php/rate-limiter` is a soft dependency, `require-dev` only** — same reasoning as `ez-php/mail`'s `Job\SendMailableJob`: a module that pulls in a package as a hard `require` forces it on every consumer, even ones that never use the decorator. PSR-4 only resolves `RateLimitedChannel.php` (and therefore `RateLimiterInterface`) when something actually references the class.
 - **`ez-php/sms` is a soft dependency (`suggest` + `require-dev`)**, like `ez-php/webhook`, not a hard `require` like `ez-php/push`: SMS needs a paid provider account most applications don't have, so it is not forced on every consumer. The provider registers the `sms` channel only when `interface_exists(SmsSenderInterface::class)` and the container has a binding — PSR-4 never loads `SmsChannel` otherwise.
 - **`routeNotificationFor()` returns `string|int`.** All built-in channels need either a string address or an integer/string ID. This union type avoids `mixed` while accommodating all use cases.
-- **`MailChannel`/`PushChannel` take their delivery service by constructor injection, with the façade as fallback.** `NotificationServiceProvider` passes the bound `MailerInterface` / `Pusher` when the container has one, like `WebhookChannel` (`WebhookDispatcher`) and `DatabaseChannel` (`PDO`); a channel built without one (`new MailChannel()`, or no binding) calls `Mail::send()` / `Push::send()` as before. Synchronous delivery therefore no longer depends on the façades having been wired first, and tests can inject a fake instead of setting global state. The queued `Send*NotificationJob`s still use the façades — a serialized job cannot carry the service — and `BroadcastChannel` keeps `Broadcast::to()`, whose façade holds the configured driver. `ez-php/push` is a hard `require` of this package, not optional, matching `ez-php/mail` and `ez-php/broadcast`.
+- **`MailChannel`/`BroadcastChannel`/`PushChannel` take their delivery service by constructor injection, with the façade as fallback.** `NotificationServiceProvider` passes the bound `MailerInterface` / `Broadcaster` / `Pusher` when the container has one, like `WebhookChannel` (`WebhookDispatcher`) and `DatabaseChannel` (`PDO`); a channel built without one (`new MailChannel()`, or no binding) calls `Mail::send()` / `Broadcast::to()` / `Push::send()` as before. Synchronous delivery therefore no longer depends on the façades having been wired first, and tests can inject a fake instead of setting global state. The queued `Send*NotificationJob`s still use the façades — a serialized job cannot carry the service. `ez-php/push` is a hard `require` of this package, not optional, matching `ez-php/mail` and `ez-php/broadcast`.
 - **No `Notifiable` trait or abstract base class.** Implementing `routeNotificationFor()` is the entire contract. Adding a trait or base class would couple application models to the module without benefit.
 
 ---
@@ -466,7 +469,7 @@ All four extend `EzPhp\Queue\Job` and implement `handle()` with zero parameters 
 - **No external infrastructure required.** All tests run in-process.
 - **`DatabaseChannelTest`** — Uses SQLite `:memory:` via plain `PDO`. No MySQL or Docker required.
 - **`MailChannelTest`** — Injects `Support\NotificationSpyMailer implements MailerInterface` via `Mail::setMailer()` for the façade fallback, and directly into the constructor for the injected path (asserting the façade mailer stays untouched). Uses `Mail::resetMailer()` in `tearDown()` to prevent state leaking. The spy is a named, autoloadable class in `tests/Support/` (not anonymous, and not file-scoped inside one test) so `NotificationServiceProviderTest` can use it when run on its own, and PHPStan's `property.onlyWritten` check does not trip over a reference-backed property.
-- **`BroadcastChannelTest`** — Uses `ArrayDriver` (real in-memory driver from `ez-php/broadcast`) via `Broadcast::setBroadcaster()`. Uses `Broadcast::resetBroadcaster()` in `tearDown()`.
+- **`BroadcastChannelTest`** — Uses `ArrayDriver` (real in-memory driver from `ez-php/broadcast`), both injected into the channel and through `Broadcast::setBroadcaster()` for the façade fallback. Uses `Broadcast::resetBroadcaster()` in `tearDown()`.
 - **`PushChannelTest`** — Uses `ArrayDriver` (real in-memory driver from `ez-php/push`) via `Push::setPusher(new Pusher($driver))`, and a second `ArrayDriver` behind a constructor-injected `Pusher` for the injected path. Uses `Push::resetPusher()` in `tearDown()`.
 - **`SmsChannelTest`** — Uses `ez-php/sms`'s `ArrayDriver`, injected for `send()` and set via `Sms::setSender()` for the queued job's façade path. Uses `Sms::resetSender()` in `tearDown()`.
 - **`NotifierTest`** — All channels are anonymous-class or file-scope-class stubs. `SpyQueue implements QueueInterface` captures `push()` calls. No external infrastructure.

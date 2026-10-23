@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace EzPhp\Notification;
 
+use EzPhp\Broadcast\Broadcaster;
 use EzPhp\Contracts\ContainerInterface;
 use EzPhp\Contracts\DatabaseInterface;
 use EzPhp\Contracts\QueueInterface;
@@ -48,9 +49,9 @@ final class NotificationServiceProvider extends ServiceProvider
         $this->app->bind(Notifier::class, function (ContainerInterface $app): Notifier {
             $channels = [
                 // Bound services are injected; without a binding the channels fall back
-                // to their module's façade (Mail::send(), Push::send()).
+                // to their module's façade (Mail::send(), Broadcast::to(), Push::send()).
                 'mail' => new MailChannel($app->has(MailerInterface::class) ? $app->make(MailerInterface::class) : null),
-                'broadcast' => new BroadcastChannel(),
+                'broadcast' => new BroadcastChannel($app->has(Broadcaster::class) ? $app->make(Broadcaster::class) : null),
                 'push' => new PushChannel($app->has(Pusher::class) ? $app->make(Pusher::class) : null),
             ];
 
