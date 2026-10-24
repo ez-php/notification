@@ -310,6 +310,9 @@ tests/
 ├── NotificationTest.php               — covers Notification facade: delegation, uninitialized throw, reset, replace
 ├── NotificationServiceProviderTest.php — register/boot smoke test; the mail and broadcast channels use the bound MailerInterface / Broadcaster
 ├── Support/NotificationSpyMailer.php  — recording MailerInterface shared by the mail-channel and provider tests
+├── Support/NotificationPdoDatabase.php — DatabaseInterface over an existing PDO, so a test can share one in-memory SQLite connection
+├── Support/FakeConfig.php             — minimal ConfigInterface stub for service provider tests
+├── Support/FakeContainer.php          — minimal ContainerInterface stub for service provider tests
 └── Channel/
     ├── MailChannelTest.php            — covers MailChannel + SendMailNotificationJob
     ├── BroadcastChannelTest.php       — covers BroadcastChannel + SendBroadcastNotificationJob
