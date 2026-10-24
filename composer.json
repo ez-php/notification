@@ -27,11 +27,11 @@
     },
     "require": {
         "php": "^8.5",
-        "ez-php/contracts": "^2.0",
-        "ez-php/mail": "^2.0",
-        "ez-php/broadcast": "^2.0",
-        "ez-php/push": "^2.0",
-        "ez-php/queue": "^2.0"
+        "ez-php/contracts": "^2.6.0",
+        "ez-php/mail": "^2.6.0",
+        "ez-php/broadcast": "^2.6.0",
+        "ez-php/push": "^2.6.0",
+        "ez-php/queue": "^2.6.0"
     },
     "suggest": {
         "ez-php/rate-limiter": "Needed for RateLimitedChannel",
@@ -39,10 +39,10 @@
         "ez-php/webhook": "Needed for WebhookChannel (signed, queued, retried HTTP delivery)"
     },
     "require-dev": {
-        "ez-php/docker": "^2.0",
-        "ez-php/rate-limiter": "^2.0",
-        "ez-php/sms": "^2.0",
-        "ez-php/webhook": "^2.0",
+        "ez-php/docker": "^2.6.0",
+        "ez-php/rate-limiter": "^2.6.0",
+        "ez-php/sms": "^2.6.0",
+        "ez-php/webhook": "^2.6.0",
         "phpunit/phpunit": "^13.0",
         "phpstan/phpstan": "^2.1",
         "friendsofphp/php-cs-fixer": "^3.94",
